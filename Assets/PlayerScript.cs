@@ -12,8 +12,11 @@ public class PlayerScript : NetworkBehaviour
             [DllImport("user32.dll", EntryPoint = "FindWindow")]
             public static extern System.IntPtr FindWindow(System.String className, System.String windowName);
 
+    private SceneScript sceneScript;
+    private MicrophoneScript microphone;
 
     public TextMesh playerNameText;
+
         public GameObject floatingInfo;
 
         private Material playerMaterialClone;
@@ -37,9 +40,49 @@ public class PlayerScript : NetworkBehaviour
             GetComponent<Renderer>().material = playerMaterialClone;
         }
 
+        
+
+    void Awake()
+    {
+        //allow all players to run this
+        sceneScript = GameObject.FindObjectOfType<SceneScript>();
+        microphone = GameObject.FindObjectOfType<MicrophoneScript>();//GameObject.Find("MicrophoneScript").GetComponent<MicrophoneScript>();//GameObject.FindObjectOfType<MicrophoneScript>();//GameObject.Find("MicrophoneController").GetComponent<MicrophoneController>();//GameObject.FindWithTag("MicrophoneObject");//GameObject.Find("MicrophoneController").GetComponent<MicrophoneController>();//GameObject.FindObjectOfType<MicrophoneController>();
+    }
+
+    [Command]
+    public void CmdSendPlayerMessage()
+    {
+        if (sceneScript) 
+            sceneScript.statusText = $"{playerName} says hello {Random.Range(10, 99)}";
+    }
+
+    [Command]
+    public void CmdSendPlayerVoice()
+    {
+        if (microphone == null) microphone = GameObject.FindObjectOfType<MicrophoneScript>();
+        if (microphone != null) {
+             float[] beforeSend = new float[microphone.goAudioSource.clip.samples];
+                    microphone.goAudioSource.clip.GetData(beforeSend,0);
+                    foreach(var el in beforeSend) {
+                        microphone.othersVoice.Add(new noiseChunk {
+                            part = el,
+                            end = false
+                        });
+                    }
+                    microphone.othersVoice.Add(new noiseChunk {
+                            part = 0.0f,
+                            end = true
+                        });
+                    
+            
+        }
+            // microphone.statusAudio = microphone.goAudioSource.clip;
+    }
+
     
     public override void OnStartLocalPlayer()
         {
+            sceneScript.playerScript = this;
             Camera.main.transform.SetParent(transform);
             Camera.main.transform.localPosition = new Vector3(0, 0, 0);
 
@@ -54,7 +97,12 @@ public class PlayerScript : NetworkBehaviour
             //Get the window handle.
                 var windowPtr = FindWindow(null, "MirrorTest");
             //Set the title text using the window handle.
-                SetWindowText(windowPtr, name);
+            if (isServer) {
+                SetWindowText(windowPtr, "Server:"+name);
+            } else {
+                SetWindowText(windowPtr, "Client:"+name);
+            }
+                
             }
         }
 
@@ -64,6 +112,7 @@ public class PlayerScript : NetworkBehaviour
             // player info sent to server, then server updates sync vars which handles it on all clients
             playerName = _name;
             playerColor = _col;
+            sceneScript.statusText = $"{playerName} joined.";
         }
 
         void Update()
@@ -81,4 +130,6 @@ public class PlayerScript : NetworkBehaviour
             transform.Rotate(0, moveX, 0);
             transform.Translate(0, 0, moveZ);
         }
+
+        
 }
