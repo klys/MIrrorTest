@@ -1,47 +1,26 @@
+using Mirror;
 using System;
-using System.Globalization;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using Mirror;
-
-
-
-public struct noiseChunk {
-    public float part;
-    public bool end;
-}
-
 
 [RequireComponent (typeof (AudioSource))]
-public class MicrophoneScript : NetworkBehaviour
+public class VoiceChatBehavior : NetworkBehaviour
 {
-
-
+    [SerializeField] private float[] beforeSend = null;
 
     private bool micConnected = false;  
   
     //The maximum and minimum available recording frequencies  
     private int minFreq;  
     private int maxFreq;  
-  
-    
-   
 
-
-    public AudioSource netAudioSource;
-
-    public PlayerScript playerScript;
-
-    //A handle to the attached AudioSource  
     public AudioSource goAudioSource;  
 
-   
-  
-    //Use this for initialization  
-    void Start()   
-    {  
+    private static event Action<AudioSource> OnMessage;
+
+    // Called when the a client is connected to the server
+    public override void OnStartAuthority()
+    {
         //Check if there is at least one microphone connected  
         if(Microphone.devices.Length <= 0)  
         {  
@@ -67,56 +46,60 @@ public class MicrophoneScript : NetworkBehaviour
             goAudioSource = this.GetComponent<AudioSource>();
             
             //assignAuthorityObj.GetComponent<NetworkIdentity>().AssignClientAuthority(this.GetComponent<NetworkIdentity>().connectionToClient); 
-        }  
-    }  
+        }
 
-    // public static float[] GetClipData(AudioClip _clip)
-	// {
-	// 	//Get data
-	// 	float[] floatData = new float[_clip.samples * _clip.channels];
-	// 	_clip.GetData(floatData,0);			
-		
-    //     return floatData;
-	// 	//convert to byte array
-	// 	// byte[] byteData = new byte[floatData.Length * 4];
-	// 	// Buffer.BlockCopy(floatData, 0, byteData, 0, byteData.Length);
-		
-	// 	// return(byteData);
-	// }	
+        OnMessage += HandleNewMessage;
+    }
 
-    // public static byte[] Compress(byte[] bytes)
-    //     {
-    //         using (var memoryStream = new MemoryStream())
-    //         {
-    //             using (var gzipStream = new GZipStream(memoryStream, CompressionLevel.Optimal))
-    //             {
-    //                 gzipStream.Write(bytes, 0, bytes.Length);
-    //             }
-    //             return memoryStream.ToArray();
-    //         }
-    //     }
+    
 
-    // public static byte[] Decompress(byte[] bytes)
-    //     {
-    //         using (var memoryStream = new MemoryStream(bytes))
-    //         {
+    // Called when a client has exited the server
+    [ClientCallback]
+    private void OnDestroy()
+    {
+        if(!hasAuthority) { return; }
 
-    //             using (var outputStream = new MemoryStream())
-    //             {
-    //                 using (var decompressStream = new GZipStream(memoryStream, CompressionMode.Decompress))
-    //                 {
-    //                     decompressStream.CopyTo(outputStream);
-    //                 }
-    //                 return outputStream.ToArray();
-    //             }
-    //         }
-    //     }
+        OnMessage -= HandleNewMessage;
+    }
 
-     public static AudioClip AudioClipCreateEmpty(string ClipName, int Length) {
+    // When a new message is added, update the Scroll View's Text to include the new message
+    private void HandleNewMessage(AudioSource message)
+    {
+        message.Play();
+    }
+
+    // When a client hits the enter button, send the message in the InputField
+    [Client]
+    public void Send(float[] voiceData)
+    {
+        if(voiceData.Length == 0) { return; }
+        beforeSend = voiceData;
+        CmdSendMessage(voiceData);
+        
+    }
+
+    [Command]
+    private void CmdSendMessage(float[] message)
+    {
+        // Validate message
+        RpcHandleMessage(message);
+    }
+
+    [ClientRpc]
+    private void RpcHandleMessage(float[] message)
+    {
+        AudioSource VoiceAudio = GetComponent<AudioSource>();
+        AudioClip VoiceClip = AudioClipCreateEmpty("Voice", message.Length);
+        VoiceClip.SetData(message, 0);
+        VoiceAudio.clip = VoiceClip;
+        OnMessage?.Invoke(VoiceAudio);
+    }
+
+    public static AudioClip AudioClipCreateEmpty(string ClipName, int Length) {
         AudioClip AudioClipToReturn = AudioClip.Create (ClipName, Length, 1, 44100,false);
         return AudioClipToReturn;
     }
-  
+
     void OnGUI()   
     {  
         //If there is a microphone  
@@ -138,8 +121,18 @@ public class MicrophoneScript : NetworkBehaviour
                 if(GUI.Button(new Rect(Screen.width/2-100, Screen.height/2-25, 200, 50), "Stop and Play!"))  
                 {  
                     Microphone.End(null); //Stop the audio recording  
-                    goAudioSource.Play(); //Playback the recorded audio  
                     
+
+                    Debug.Log("Trying to send voice.");
+                    //goAudioSource.Play();
+
+                    float[] beforeSend = new float[goAudioSource.clip.samples];
+                    goAudioSource.clip.GetData(beforeSend,0);
+                    Send(beforeSend);
+                    Debug.Log("VoiceData prepared to be send.");
+                    //CmdSendPlayerVoice();
+                    
+         
                 }  
   
                 GUI.Label(new Rect(Screen.width/2-100, Screen.height/2+25, 200, 50), "Recording in progress...");  
@@ -154,13 +147,11 @@ public class MicrophoneScript : NetworkBehaviour
   
     }
 
-    // void Update() {
-    //     if (Input.GetKeyDown(KeyCode.Space))
-    //     {
-    //         print("space key was pressed");
-    //     }
-    // } 
 
-
+    public float[] VoiceData() {
+        float[] beforeSend = new float[goAudioSource.clip.samples];
+                    goAudioSource.clip.GetData(beforeSend,0);
+                    return beforeSend;
+    }
 
 }

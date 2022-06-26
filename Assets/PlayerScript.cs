@@ -2,10 +2,22 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
+using UnityEngine.UI;
 using Mirror;
+
+
 
 public class PlayerScript : NetworkBehaviour
 {
+
+    public readonly SyncList<noiseChunk> othersVoice = new SyncList<noiseChunk>();
+
+    
+
+
+    
+
+    
     //Import the following.
             [DllImport("user32.dll", EntryPoint = "SetWindowText")]
             public static extern bool SetWindowText(System.IntPtr hwnd, System.String lpString);
@@ -13,7 +25,7 @@ public class PlayerScript : NetworkBehaviour
             public static extern System.IntPtr FindWindow(System.String className, System.String windowName);
 
     private SceneScript sceneScript;
-    private MicrophoneScript microphone;
+    
 
     public TextMesh playerNameText;
 
@@ -40,13 +52,14 @@ public class PlayerScript : NetworkBehaviour
             GetComponent<Renderer>().material = playerMaterialClone;
         }
 
+    
         
 
     void Awake()
     {
         //allow all players to run this
         sceneScript = GameObject.FindObjectOfType<SceneScript>();
-        microphone = GameObject.FindObjectOfType<MicrophoneScript>();//GameObject.Find("MicrophoneScript").GetComponent<MicrophoneScript>();//GameObject.FindObjectOfType<MicrophoneScript>();//GameObject.Find("MicrophoneController").GetComponent<MicrophoneController>();//GameObject.FindWithTag("MicrophoneObject");//GameObject.Find("MicrophoneController").GetComponent<MicrophoneController>();//GameObject.FindObjectOfType<MicrophoneController>();
+        //microphone = GameObject.FindObjectOfType<MicrophoneScript>();//GameObject.Find("MicrophoneScript").GetComponent<MicrophoneScript>();//GameObject.FindObjectOfType<MicrophoneScript>();//GameObject.Find("MicrophoneController").GetComponent<MicrophoneController>();//GameObject.FindWithTag("MicrophoneObject");//GameObject.Find("MicrophoneController").GetComponent<MicrophoneController>();//GameObject.FindObjectOfType<MicrophoneController>();
     }
 
     [Command]
@@ -56,28 +69,37 @@ public class PlayerScript : NetworkBehaviour
             sceneScript.statusText = $"{playerName} says hello {Random.Range(10, 99)}";
     }
 
-    [Command]
-    public void CmdSendPlayerVoice()
-    {
-        if (microphone == null) microphone = GameObject.FindObjectOfType<MicrophoneScript>();
-        if (microphone != null) {
-             float[] beforeSend = new float[microphone.goAudioSource.clip.samples];
-                    microphone.goAudioSource.clip.GetData(beforeSend,0);
-                    foreach(var el in beforeSend) {
-                        microphone.othersVoice.Add(new noiseChunk {
-                            part = el,
-                            end = false
-                        });
-                    }
-                    microphone.othersVoice.Add(new noiseChunk {
-                            part = 0.0f,
-                            end = true
-                        });
+    
+
+    // [Command(requiresAuthority = false)]
+    // public void CmdSendPlayerVoice()
+    // {
+    //     Debug.Log("CmdSendPlayerVoice execution.");
+        
+        
+        
+        
+    //          //float[] beforeSend = VoiceData();
+    //                 var count = 0;
+    //                 foreach(var el in beforeSend) {
+    //                     if (count < 10) {
+    //                         count++;
+    //                         Debug.Log("Value:"+el);
+    //                     }
+    //                     othersVoice.Add(new noiseChunk {
+    //                         part = el,
+    //                         end = false
+    //                     });
+    //                 }
+    //                 othersVoice.Add(new noiseChunk {
+    //                         part = 0.0f,
+    //                         end = true
+    //                     });
                     
             
-        }
-            // microphone.statusAudio = microphone.goAudioSource.clip;
-    }
+        
+    //         // microphone.statusAudio = microphone.goAudioSource.clip;
+    // }
 
     
     public override void OnStartLocalPlayer()
@@ -131,5 +153,6 @@ public class PlayerScript : NetworkBehaviour
             transform.Translate(0, 0, moveZ);
         }
 
+    
         
 }
